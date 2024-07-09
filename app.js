@@ -126,9 +126,13 @@ app.post('/login', async (req, res) => {
   const user = await User.findOne({ where: { username } });
 
 
-  if (!user || User.validPassword !== password) {
-    return res.status(401).json({ error: 'Invalid username or password' });
-  }
+if (!user) {
+    return res.status(401).json({ error: 'User not found' });
+}
+
+if (!(await user.validPassword(password))) {
+    return res.status(401).json({ error: 'Invalid password' });
+}
 
   const token = jwt.sign({ id: user.id }, 'secret', { expiresIn: '1h' });
   res.json({token});
