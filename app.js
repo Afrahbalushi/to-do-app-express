@@ -128,7 +128,6 @@ app.post('/login', async (req, res) => {
 });
 
 
-
 app.post('/tasks', authenticate, async (req, res) => {
     const { name } = req.body;
 
