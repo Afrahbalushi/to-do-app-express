@@ -27,6 +27,7 @@ const Task = db.define('task', {
     },
     isDone: {
       type: sequelize.BOOLEAN,
+      allowNull: false,
       defaultValue: false
     }
   });
@@ -110,21 +111,28 @@ app.post('/register', async (req, res) => {
   }
 
   const newUser = await User.create({ username, password });
-  res.status(201).json(newUser);
+  res.status(201).json( {username, createdAt: newUser.createdAt} );
 });
 
 
 
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+  
   const user = await User.findOne({ where: { username } });
 
-  if (!user || !user.validPassword(password)) {
+
+  if (!user || User.validPassword !== password) {
     return res.status(401).json({ error: 'Invalid username or password' });
   }
 
   const token = jwt.sign({ id: user.id }, 'secret', { expiresIn: '1h' });
-  res.json({ token });
+  res.json({token});
+
 });
 
 
@@ -154,8 +162,8 @@ app.get('/tasks',authenticate, async (req, res) => {
     const tasks = await Task.findAll({ where: { userId: req.user.id } });
     res.status(200).json(tasks);
   } catch (error) {
-    res.status(400).json({ error: 'Tasks not found' });
     console.error('Error fetching tasks:', error);
+    res.status(400).json({ error: 'Tasks not found' });
   }
 });
 
@@ -166,8 +174,8 @@ app.get('/tasks/done', authenticate, async (req, res) => {
     const doneTasks = await Task.findAll({ where: { userId: req.user.id, isDone: true } });
     res.status(200).json(doneTasks);
   } catch (error) {
-    res.status(400).json({ error: 'Tasks not found' });
     console.error('Error fetching done tasks:', error);
+    res.status(400).json({ error: 'Tasks not found' });
   }
 });
 
@@ -178,15 +186,23 @@ app.get('/tasks/notdone', authenticate, async (req, res) => {
     const notDoneTasks = await Task.findAll({ where: { userId: req.user.id, isDone: false } });
     res.status(200).json(notDoneTasks);
   } catch (error) {
-    res.status(400).json({ error: 'Tasks not found' });
     console.error('Error fetching not done tasks:', error);
+    res.status(400).json({ error: 'Tasks not found' });
   }
 });
 
 
 
-app.put('/tasks/:id', authenticate, async (req, res) => {
+app.put('/tasks/:id', authenticate, async (req, res) => { 
+
   const { name, isDone } = req.body;
+ 
+  const taskId = parseInt(req.params.id);
+    if (isNaN(taskId)) {
+        return res.status(400).json({ error: 'Invalid task ID. ID must be a number' });
+    }
+
+    
   try {
     const task = await Task.findOne({ where: { id: req.params.id, userId: req.user.id } });
 
@@ -195,10 +211,11 @@ app.put('/tasks/:id', authenticate, async (req, res) => {
     }
 
     await task.update({ name, isDone });
-    res.status(200).json({ message: 'Task updated successfully' });
+    res.status(200).json( {message: "updated to: " +  task.name + " (Successful)"});
+
   } catch (error) {
-    res.status(400).json({ error: 'Failed to update task' });
     console.error('Error updating task:', error);
+    res.status(400).json({ error: 'Failed to update task' });
   }
 });
 
@@ -206,6 +223,10 @@ app.put('/tasks/:id', authenticate, async (req, res) => {
 
 app.delete('/tasks/:id', authenticate, async (req, res) => {
   try {
+    const taskId = parseInt(req.params.id);
+    if (isNaN(taskId)) {
+        return res.status(400).json({ error: 'Invalid task ID. ID must be a number' });
+    }
     const task = await Task.findOne({ where: { id: req.params.id, userId: req.user.id } });
 
     if (!task) {
@@ -215,15 +236,20 @@ app.delete('/tasks/:id', authenticate, async (req, res) => {
     await task.destroy();
     res.status(200).json({ message: 'Task deleted successfully' });
   } catch (error) {
-    res.status(400).json({ error: 'Failed to delete task' });
     console.error('Error deleting task:', error);
-  }
+    res.status(400).json({ error: 'Failed to delete task' });
+  } 
 });
 
 
 
 app.put('/tasks/:id/done', authenticate, async (req, res) => {
   try {
+    const taskId = parseInt(req.params.id);
+    if (isNaN(taskId)) {
+        return res.status(400).json({ error: 'Invalid task ID. ID must be a number' });
+    }
+
     const task = await Task.findOne({ where: { id: req.params.id, userId: req.user.id } });
 
     if (!task) {
@@ -246,8 +272,8 @@ app.put('/tasks/:id/done', authenticate, async (req, res) => {
 
     res.json({ message: 'Task marked as done' });
   } catch (error) {
-    res.status(400).json({ error: 'Failed to mark task as done' });
     console.error('Error marking task as done:', error);
+    res.status(400).json({ error: 'Failed to mark task as done' });
   }
 });
 
